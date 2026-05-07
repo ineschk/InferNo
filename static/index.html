@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetGuard — Détection d'Intrusion</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #060a0f;
+  --surface: #0d1520;
+  --surface2: #111d2e;
+  --border: #1e3a5f;
+  --accent: #00d4ff;
+  --accent2: #0088ff;
+  --danger: #ff3b5c;
+  --warn: #ffb800;
+  --ok: #00e5a0;
+  --text: #c8dff0;
+  --muted: #4a7090;
+  --mono: 'Share Tech Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Glow orb */
+body::after {
+  content: '';
+  position: fixed;
+  top: -200px; left: 50%;
+  transform: translateX(-50%);
+  width: 800px; height: 400px;
+  background: radial-gradient(ellipse, rgba(0,136,255,0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 2rem; }
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 0 2.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2.5rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logo-icon {
+  width: 44px; height: 44px;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 0 20px rgba(0,212,255,0.3);
+  animation: pulse-border 3s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 20px rgba(0,212,255,0.3); }
+  50% { box-shadow: 0 0 35px rgba(0,212,255,0.6); }
+}
+
+.logo-text h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.logo-text p {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.header-stats {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.stat-chip {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 0.4rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Layout ── */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .header-stats { display: none; }
+}
+
+/* ── Panel ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, var(--surface2), var(--surface));
+}
+
+.panel-header h2 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.panel-icon {
+  font-size: 1rem;
+  width: 32px; height: 32px;
+  background: rgba(0,212,255,0.1);
+  border: 1px solid rgba(0,212,255,0.2);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.panel-body { padding: 1.5rem; }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.tab {
+  flex: 1;
+  padding: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--muted);
+  border: none;
+  background: none;
+}
+
+.tab.active {
+  background: var(--accent2);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0,136,255,0.4);
+}
+
+/* ── Presets ── */
+.presets {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.preset {
+  flex: 1;
+  padding: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid;
+  transition: all 0.2s;
+  background: transparent;
+  text-align: center;
+}
+
+.preset.ok    { color: var(--ok);     border-color: var(--ok);     }
+.preset.warn  { color: var(--warn);   border-color: var(--warn);   }
+.preset.bad   { color: var(--danger); border-color: var(--danger); }
+
+.preset:hover { filter: brightness(1.3); transform: translateY(-1px); }
+
+/* ── Features grid ── */
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.features-grid::-webkit-scrollbar { width: 4px; }
+.features-grid::-webkit-scrollbar-track { background: var(--bg); border-radius: 4px; }
+.features-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.feat-group { display: flex; flex-direction: column; gap: 3px; }
+
+.feat-group label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.feat-group input,
+.feat-group select {
+  padding: 0.45rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  transition: border-color 0.2s;
+}
+
+.feat-group input:focus,
+.feat-group select:focus {
+  outline: none;
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 2px rgba(0,136,255,0.15);
+}
+
+/* JSON tab */
+.json-area {
+  width: 100%;
+  min-height: 140px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 1rem;
+  resize: vertical;
+  margin-bottom: 1rem;
+}
+
+.json-area:focus { outline: none; border-color: var(--accent2); }
+
+/* ── Submit button ── */
+.submit-btn {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 0.875rem;
+  background: linear-gradient(135deg, var(--accent2), #0055cc);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 20px rgba(0,136,255,0.3);
+}
+
+.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(0,136,255,0.5); }
+.submit-btn:disabled { opacity: 0.5; transform: none; cursor: not-allowed; }
+
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Right panel ── */
+.right { display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* Score card */
+.score-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.score-card-inner {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.score-ring {
+  position: relative;
+  width: 160px; height: 160px;
+}
+
+.score-ring svg { transform: rotate(-90deg); }
+
+.score-ring-track { fill: none; stroke: var(--surface2); stroke-width: 10; }
+.score-ring-fill  { fill: none; stroke-width: 10; stroke-linecap: round;
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1), stroke 0.5s; }
+
+.score-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-num {
+  font-size: 2.8rem;
+  font-weight: 800;
+  font-family: var(--mono);
+  line-height: 1;
+}
+
+.score-max {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.label-badge {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.4rem 1.5rem;
+  border-radius: 999px;
+  border: 1.5px solid;
+}
+
+.label-badge.normal  { color: var(--ok);     border-color: var(--ok);     background: rgba(0,229,160,0.08);  }
+.label-badge.suspect { color: var(--warn);   border-color: var(--warn);   background: rgba(255,184,0,0.08);  }
+.label-badge.attaque { color: var(--danger); border-color: var(--danger); background: rgba(255,59,92,0.08);  }
+
+.score-metrics {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.metric {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.875rem;
+  text-align: center;
+}
+
+.metric-val {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.metric-lbl {
+  font-size: 0.65rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+/* Empty state */
+.empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.empty p {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+
+/* History */
+.history-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.history-list { padding: 0.75rem; }
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.history-item:last-child { margin-bottom: 0; }
+
+.h-time { color: var(--muted); }
+.h-score { font-weight: 700; color: #fff; }
+
+.h-badge {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.h-badge.normal  { color: var(--ok);     border-color: var(--ok);     }
+.h-badge.suspect { color: var(--warn);   border-color: var(--warn);   }
+.h-badge.attaque { color: var(--danger); border-color: var(--danger); }
+
+/* Error toast */
+.toast {
+  position: fixed;
+  bottom: 2rem; right: 2rem;
+  background: rgba(255,59,92,0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  z-index: 999;
+  display: none;
+  animation: slideIn 0.3s ease;
+  max-width: 320px;
+}
+
+.toast.show { display: block; }
+
+/* Section label */
+.section-lbl {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">
+        <h1>NetGuard</h1>
+        <p>NSL-KDD Intrusion Scoring API</p>
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="stat-chip"><div class="dot"></div><span id="api-status">API en ligne</span></div>
+      <div class="stat-chip">🤖 v<span id="model-version">—</span></div>
+      <div class="stat-chip">📊 Acc: <span id="model-acc">—</span></div>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <div class="layout">
+
+    <!-- Left: Input panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-icon">📥</div>
+        <h2>Saisie des Features Réseau</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="tabs">
+          <button class="tab active" onclick="setTab('form',this)">Formulaire</button>
+          <button class="tab" onclick="setTab('json',this)">JSON brut</button>
+        </div>
+
+        <!-- FORM TAB -->
+        <div id="tab-form">
+          <p class="section-lbl">Présets rapides</p>
+          <div class="presets">
+            <button class="preset ok"   onclick="loadPreset('normal')">▶ Normal</button>
+            <button class="preset warn" onclick="loadPreset('suspect')">▶ Suspect</button>
+            <button class="preset bad"  onclick="loadPreset('attack')">▶ Attaque</button>
+          </div>
+          <p class="section-lbl">41 Features NSL-KDD</p>
+          <div class="features-grid" id="feat-grid"></div>
+        </div>
+
+        <!-- JSON TAB -->
+        <div id="tab-json" style="display:none;">
+          <p class="section-lbl">Payload JSON (41 features)</p>
+          <textarea class="json-area" id="json-input" placeholder='{"features": [0, "tcp", "http", "SF", 181, 5450, 0, 0, ...]}'></textarea>
+        </div>
+
+        <button class="submit-btn" id="submit-btn" onclick="submitScore()">
+          <span>⚡ Analyser la connexion</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- Right: Results -->
+    <div class="right">
+
+      <!-- Score card -->
+      <div class="score-card" id="score-card">
+        <div class="panel-header">
+          <div class="panel-icon">📊</div>
+          <h2>Résultat d'analyse</h2>
+        </div>
+
+        <div id="empty-state" class="empty">
+          <div class="empty-icon">🔍</div>
+          <p>Sélectionne un préset<br>ou saisis les features,<br>puis clique sur Analyser.</p>
+        </div>
+
+        <div id="result-state" style="display:none;">
+          <div class="score-card-inner">
+            <div class="score-ring">
+              <svg viewBox="0 0 160 160" width="160" height="160">
+                <circle class="score-ring-track" cx="80" cy="80" r="70"/>
+                <circle class="score-ring-fill" id="ring-fill" cx="80" cy="80" r="70"
+                  stroke-dasharray="439.82"
+                  stroke-dashoffset="439.82"
+                  stroke="var(--accent)"/>
+              </svg>
+              <div class="score-center">
+                <span class="score-num" id="r-score">0</span>
+                <span class="score-max">/100</span>
+              </div>
+            </div>
+            <span class="label-badge" id="r-badge">—</span>
+          </div>
+          <div class="score-metrics">
+            <div class="metric">
+              <div class="metric-val" id="r-conf">—</div>
+              <div class="metric-lbl">Confiance</div>
+            </div>
+            <div class="metric">
+              <div class="metric-val" id="r-ver">—</div>
+              <div class="metric-lbl">Version</div>
+            </div>
+            <div class="metric">
+              <div class="metric-val">15</div>
+              <div class="metric-lbl">Features ML</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div class="history-panel" id="history-panel" style="display:none;">
+        <div class="panel-header">
+          <div class="panel-icon">📜</div>
+          <h2>Historique</h2>
+        </div>
+        <div class="history-list" id="history-list"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const FEATURES_41 = [
+  "duration","protocol_type","service","flag","src_bytes","dst_bytes",
+  "land","wrong_fragment","urgent","hot","num_failed_logins","logged_in",
+  "num_compromised","root_shell","su_attempted","num_root","num_file_creations",
+  "num_shells","num_access_files","num_outbound_cmds","is_host_login",
+  "is_guest_login","count","srv_count","serror_rate","srv_serror_rate",
+  "rerror_rate","srv_rerror_rate","same_srv_rate","diff_srv_rate",
+  "srv_diff_host_rate","dst_host_count","dst_host_srv_count",
+  "dst_host_same_srv_rate","dst_host_diff_srv_rate",
+  "dst_host_same_src_port_rate","dst_host_srv_diff_host_rate",
+  "dst_host_serror_rate","dst_host_srv_serror_rate",
+  "dst_host_rerror_rate","dst_host_srv_rerror_rate"
+];
+
+const CATS = {
+  protocol_type: ["tcp","udp","icmp"],
+  service: ["http","ftp","smtp","domain_u","other","private","ecr_i","echo","ssh","telnet","finger","auth","ntp_u","pop_3","ftp_data","courier","imap4","time","name","whois","domain","mtp","gopher","netbios_ns","http_443","IRC","ldap","pop_2","shell","sql_net","sunrpc","uucp","vmnet","X11"],
+  flag: ["SF","S0","REJ","RSTO","SH","RSTR","OTH","S1","S2","S3","RSTOS0"]
+};
+
+const PRESETS = {
+  normal:  [0,"tcp","http","SF",181,5450,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,8,8,0,0,0,0,1,0,0,9,9,1,0,0.11,0,0,0,0,0],
+  suspect: [2,"tcp","ftp","S0",0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,20,20,1,1,0,0,0.2,0.8,0.5,50,50,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5],
+  attack:  [0,"icmp","ecr_i","SF",1032,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,511,511,0,0,1,1,0,1,0,255,255,0,1,0,0,0,0,1,0]
+};
+
+let history = [];
+let activeTab = 'form';
+
+// Build form
+function buildForm() {
+  const grid = document.getElementById('feat-grid');
+  grid.innerHTML = '';
+  FEATURES_41.forEach((name, i) => {
+    const div = document.createElement('div');
+    div.className = 'feat-group';
+    const lbl = document.createElement('label');
+    lbl.textContent = name;
+    let inp;
+    if (CATS[name]) {
+      inp = document.createElement('select');
+      CATS[name].forEach(v => {
+        const o = document.createElement('option');
+        o.value = o.textContent = v;
+        inp.appendChild(o);
+      });
+    } else {
+      inp = document.createElement('input');
+      inp.type = 'number'; inp.step = 'any'; inp.value = '0';
+    }
+    inp.id = `f${i}`;
+    div.appendChild(lbl); div.appendChild(inp);
+    grid.appendChild(div);
+  });
+}
+
+function loadPreset(name) {
+  PRESETS[name].forEach((v, i) => {
+    const el = document.getElementById(`f${i}`);
+    if (el) el.value = v;
+  });
+}
+
+function getFormFeatures() {
+  return FEATURES_41.map((_, i) => {
+    const el = document.getElementById(`f${i}`);
+    return el.tagName === 'SELECT' ? el.value : (parseFloat(el.value) || 0);
+  });
+}
+
+function setTab(name, btn) {
+  activeTab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-form').style.display = name === 'form' ? '' : 'none';
+  document.getElementById('tab-json').style.display = name === 'json' ? '' : 'none';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function setScore(score, label, confidence, version) {
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('result-state').style.display = '';
+
+  // Ring animation
+  const circ = 2 * Math.PI * 70; // 439.82
+  const offset = circ - (score / 100) * circ;
+  const ring = document.getElementById('ring-fill');
+  ring.style.strokeDashoffset = offset;
+
+  const colorMap = { normal: 'var(--ok)', suspect: 'var(--warn)', attaque: 'var(--danger)' };
+  ring.style.stroke = colorMap[label] || 'var(--accent)';
+
+  document.getElementById('r-score').textContent = score;
+  document.getElementById('r-score').style.color = colorMap[label];
+  document.getElementById('r-conf').textContent = (confidence * 100).toFixed(1) + '%';
+  document.getElementById('r-ver').textContent = 'v' + version;
+
+  const badge = document.getElementById('r-badge');
+  badge.textContent = label.toUpperCase();
+  badge.className = `label-badge ${label}`;
+}
+
+function addHistory(score, label) {
+  const now = new Date().toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  history.unshift({ score, label, time: now });
+  if (history.length > 6) history.pop();
+
+  const panel = document.getElementById('history-panel');
+  const list  = document.getElementById('history-list');
+  panel.style.display = '';
+  list.innerHTML = history.map(h => `
+    <div class="history-item">
+      <span class="h-time">${h.time}</span>
+      <span class="h-badge ${h.label}">${h.label}</span>
+      <span class="h-score">${h.score}/100</span>
+    </div>
+  `).join('');
+}
+
+async function submitScore() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div><span>Analyse en cours...</span>';
+
+  try {
+    let features;
+    if (activeTab === 'json') {
+      const raw = document.getElementById('json-input').value.trim();
+      const parsed = JSON.parse(raw);
+      features = parsed.features || parsed;
+    } else {
+      features = getFormFeatures();
+    }
+
+    if (features.length !== 41) throw new Error(`41 features requises, ${features.length} reçues`);
+
+    const res = await fetch('/v1/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ features })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Erreur serveur');
+    }
+
+    const data = await res.json();
+    setScore(data.score, data.label, data.confidence, data.model_version);
+    addHistory(data.score, data.label);
+
+  } catch (e) {
+    showToast('❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>⚡ Analyser la connexion</span>';
+  }
+}
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/v1/health');
+    const d = await res.json();
+    document.getElementById('model-version').textContent = d.model_version;
+    document.getElementById('model-acc').textContent = d.accuracy ? (d.accuracy * 100).toFixed(1) + '%' : '—';
+  } catch {
+    document.getElementById('api-status').textContent = 'API hors ligne';
+    document.querySelector('.dot').style.background = 'var(--danger)';
+  }
+}
+
+buildForm();
+loadPreset('normal');
+checkHealth();
+</script>
+</body>
+</html>

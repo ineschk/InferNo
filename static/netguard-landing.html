@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InferNo — Détection d'Intrusion Réseau par IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #03070d;
+  --surface: #080f1a;
+  --border: #0f2040;
+  --accent: #00ffcc;
+  --accent2: #0066ff;
+  --danger: #ff2d55;
+  --text: #d0e8ff;
+  --muted: #3a5f7a;
+  --display: 'Bebas Neue', sans-serif;
+  --body: 'Space Grotesk', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* Custom cursor */
+.cursor {
+  position: fixed;
+  width: 12px; height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s, width 0.2s, height 0.2s;
+  mix-blend-mode: difference;
+}
+
+.cursor-ring {
+  position: fixed;
+  width: 36px; height: 36px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: transform 0.15s ease-out, width 0.3s, height 0.3s;
+  opacity: 0.5;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,255,204,0.01) 2px,
+    rgba(0,255,204,0.01) 4px
+  );
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* Nav */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  padding: 1.5rem 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid transparent;
+  transition: all 0.3s;
+  backdrop-filter: blur(0px);
+}
+
+nav.scrolled {
+  background: rgba(3,7,13,0.9);
+  border-color: var(--border);
+  backdrop-filter: blur(20px);
+}
+
+.nav-logo {
+  font-family: var(--display);
+  font-size: 1.8rem;
+  letter-spacing: 0.1em;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-logo span {
+  color: var(--accent);
+}
+
+.nav-links {
+  display: flex;
+  gap: 2.5rem;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover { color: var(--accent); }
+
+.nav-cta {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.6rem 1.5rem;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.nav-cta:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 8rem 4rem 4rem;
+  overflow: hidden;
+}
+
+/* Animated grid */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,255,204,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,204,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: grid-move 20s linear infinite;
+}
+
+@keyframes grid-move {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(60px); }
+}
+
+/* Glow blobs */
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  pointer-events: none;
+}
+
+.blob-1 {
+  width: 600px; height: 600px;
+  background: rgba(0,102,255,0.12);
+  top: -200px; right: -100px;
+  animation: float 8s ease-in-out infinite;
+}
+
+.blob-2 {
+  width: 400px; height: 400px;
+  background: rgba(0,255,204,0.08);
+  bottom: 0; left: -100px;
+  animation: float 10s ease-in-out infinite reverse;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-30px) scale(1.05); }
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 800px;
+}
+
+.hero-tag {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hero-tag::before {
+  content: '';
+  width: 40px; height: 1px;
+  background: var(--accent);
+}
+
+.hero-title {
+  font-family: var(--display);
+  font-size: clamp(5rem, 10vw, 9rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.hero-title .accent { color: var(--accent); }
+.hero-title .outline {
+  -webkit-text-stroke: 1px rgba(255,255,255,0.3);
+  color: transparent;
+}
+
+.hero-sub {
+  font-size: 1.15rem;
+  color: var(--muted);
+  line-height: 1.7;
+  max-width: 520px;
+  margin-bottom: 2.5rem;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.btn-primary {
+  padding: 1rem 2.5rem;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: inline-block;
+}
+
+.btn-primary:hover {
+  background: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0,255,204,0.3);
+}
+
+.btn-ghost {
+  padding: 1rem 2.5rem;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: inline-block;
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Hero stats */
+.hero-stats {
+  position: absolute;
+  right: 4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  z-index: 2;
+}
+
+.stat {
+  text-align: right;
+}
+
+.stat-num {
+  font-family: var(--display);
+  font-size: 3.5rem;
+  line-height: 1;
+  color: #fff;
+}
+
+.stat-num .unit { color: var(--accent); font-size: 2rem; }
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: var(--border);
+  margin-left: auto;
+}
+
+/* ── SECTION BASE ── */
+section {
+  padding: 8rem 4rem;
+  position: relative;
+}
+
+.section-tag {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-tag::before {
+  content: '';
+  width: 30px; height: 1px;
+  background: var(--accent);
+}
+
+.section-title {
+  font-family: var(--display);
+  font-size: clamp(3rem, 6vw, 5rem);
+  line-height: 1;
+  color: #fff;
+  margin-bottom: 1.5rem;
+}
+
+/* ── PROBLEM ── */
+.problem {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6rem;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.problem-points {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.problem-point {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,45,85,0.03);
+  transition: all 0.3s;
+}
+
+.problem-point:hover {
+  border-color: var(--danger);
+  background: rgba(255,45,85,0.06);
+  transform: translateX(4px);
+}
+
+.problem-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.problem-text strong {
+  display: block;
+  color: #fff;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+}
+
+.problem-text p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.problem-visual {
+  position: relative;
+}
+
+.cost-card {
+  background: rgba(255,45,85,0.05);
+  border: 1px solid rgba(255,45,85,0.2);
+  border-radius: 16px;
+  padding: 3rem;
+  text-align: center;
+}
+
+.cost-num {
+  font-family: var(--display);
+  font-size: 5rem;
+  color: var(--danger);
+  line-height: 1;
+}
+
+.cost-label {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
+.cost-sub {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-top: 1rem;
+  line-height: 1.6;
+}
+
+/* ── HOW IT WORKS ── */
+.how { max-width: 1200px; margin: 0 auto; }
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-top: 4rem;
+}
+
+.step {
+  background: var(--surface);
+  padding: 2.5rem 2rem;
+  position: relative;
+  transition: background 0.3s;
+}
+
+.step:hover { background: #0a1628; }
+
+.step-num {
+  font-family: var(--display);
+  font-size: 4rem;
+  color: var(--border);
+  line-height: 1;
+  margin-bottom: 1rem;
+  transition: color 0.3s;
+}
+
+.step:hover .step-num { color: var(--accent); }
+
+.step-icon { font-size: 1.5rem; margin-bottom: 1rem; }
+
+.step-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.step-desc {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.step-arrow {
+  position: absolute;
+  top: 2.5rem; right: -12px;
+  width: 24px; height: 24px;
+  background: var(--accent);
+  clip-path: polygon(0 20%, 60% 20%, 60% 0%, 100% 50%, 60% 100%, 60% 80%, 0 80%);
+  z-index: 2;
+}
+
+.step:last-child .step-arrow { display: none; }
+
+/* ── FEATURES ── */
+.features-section {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.features-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 4rem;
+}
+
+.feature-card {
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  transform: scaleX(0);
+  transition: transform 0.3s;
+}
+
+.feature-card:hover::before { transform: scaleX(1); }
+.feature-card:hover { border-color: rgba(0,255,204,0.2); transform: translateY(-4px); }
+
+.feature-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.feature-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.feature-desc {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.feature-tag {
+  display: inline-block;
+  margin-top: 1rem;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 0.2rem 0.6rem;
+  border: 1px solid rgba(0,255,204,0.2);
+  border-radius: 4px;
+}
+
+/* ── PRICING ── */
+.pricing-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-top: 4rem;
+  align-items: end;
+}
+
+.pricing-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface);
+  transition: all 0.3s;
+  position: relative;
+}
+
+.pricing-card:hover { transform: translateY(-6px); }
+
+.pricing-card.featured {
+  border-color: var(--accent);
+  box-shadow: 0 0 60px rgba(0,255,204,0.1);
+}
+
+.pricing-badge {
+  background: var(--accent);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 0.4rem;
+}
+
+.pricing-header {
+  padding: 2rem 1.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pricing-name {
+  font-family: var(--display);
+  font-size: 1.8rem;
+  letter-spacing: 0.05em;
+  color: #fff;
+  margin-bottom: 0.25rem;
+}
+
+.pricing-desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.pricing-price {
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.price-num {
+  font-family: var(--display);
+  font-size: 3.5rem;
+  color: #fff;
+  line-height: 1;
+}
+
+.price-num .currency {
+  font-size: 1.5rem;
+  color: var(--muted);
+  vertical-align: top;
+  margin-top: 0.5rem;
+  display: inline-block;
+}
+
+.price-period {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  margin-top: 0.25rem;
+}
+
+.pricing-features {
+  padding: 1.5rem 1.75rem;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pricing-features li {
+  font-size: 0.83rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pricing-features li::before {
+  content: '✓';
+  color: var(--accent);
+  font-family: var(--mono);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.pricing-features li.muted { color: var(--muted); }
+.pricing-features li.muted::before { content: '—'; color: var(--muted); }
+
+.pricing-action {
+  padding: 1.5rem 1.75rem;
+}
+
+.pricing-btn {
+  width: 100%;
+  padding: 0.875rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: block;
+  text-align: center;
+}
+
+.pricing-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pricing-btn.featured-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.pricing-btn.featured-btn:hover {
+  background: #fff;
+  border-color: #fff;
+  color: var(--bg);
+}
+
+/* ── CTA ── */
+.cta-section {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.cta-inner { max-width: 700px; margin: 0 auto; }
+
+.cta-title {
+  font-family: var(--display);
+  font-size: clamp(3rem, 6vw, 5rem);
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 1.5rem;
+}
+
+.cta-title .accent { color: var(--accent); }
+
+.cta-sub {
+  font-size: 1rem;
+  color: var(--muted);
+  margin-bottom: 2.5rem;
+  line-height: 1.7;
+}
+
+.cta-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* ── FOOTER ── */
+footer {
+  padding: 3rem 4rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-logo {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  letter-spacing: 0.1em;
+  color: #fff;
+}
+
+.footer-logo span { color: var(--accent); }
+
+.footer-copy {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* Animations */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Terminal widget */
+.terminal {
+  background: #010810;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 4rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.terminal-bar {
+  background: var(--surface);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+.terminal-body {
+  padding: 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 2;
+}
+
+.t-muted { color: var(--muted); }
+.t-accent { color: var(--accent); }
+.t-danger { color: var(--danger); }
+.t-white { color: #fff; }
+.t-green { color: #00e5a0; }
+
+@media (max-width: 900px) {
+  nav { padding: 1rem 1.5rem; }
+  .nav-links { display: none; }
+  section { padding: 5rem 1.5rem; }
+  .hero { padding: 7rem 1.5rem 4rem; }
+  .hero-stats { display: none; }
+  .problem-grid { grid-template-columns: 1fr; gap: 3rem; }
+  .steps { grid-template-columns: 1fr 1fr; }
+  .features-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr 1fr; }
+  footer { flex-direction: column; gap: 1rem; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursor-ring"></div>
+
+<!-- Nav -->
+<nav id="navbar">
+  <div class="nav-logo">Infer<span>No</span></div>
+  <ul class="nav-links">
+    <li><a href="#probleme">Problème</a></li>
+    <li><a href="#fonctionnement">Comment ça marche</a></li>
+    <li><a href="#features">Fonctionnalités</a></li>
+    <li><a href="#tarifs">Tarifs</a></li>
+  </ul>
+  <a href="http://localhost:8002/landing" class="nav-cta">← Accueil</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+
+  <div class="hero-content">
+    <div class="hero-tag">Détection d'intrusion réseau par IA</div>
+    <h1 class="hero-title">
+      INFER<span class="accent">NO</span><br>
+      <span class="outline">API</span>
+    </h1>
+    <p class="hero-sub">Une API de scoring qui analyse chaque connexion réseau en temps réel et retourne un score de risque en moins de 100ms. Basée sur XGBoost entraîné sur NSL-KDD.</p>
+    <div class="hero-actions">
+      <a href="http://localhost:8002" class="btn-primary">Voir la démo live</a>
+      <a href="#fonctionnement" class="btn-ghost">Comment ça marche</a>
+    </div>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-num">99<span class="unit">.8%</span></div>
+      <div class="stat-label">Accuracy</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-num">&lt;<span class="unit">100</span></div>
+      <div class="stat-label">Ms par requête</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-num">41<span class="unit">→15</span></div>
+      <div class="stat-label">Features ML</div>
+    </div>
+  </div>
+</section>
+
+<!-- Problem -->
+<section class="problem" id="probleme">
+  <div class="problem-grid">
+    <div class="reveal">
+      <div class="section-tag">Le problème</div>
+      <h2 class="section-title">Les PME sont aveugles face aux attaques</h2>
+      <div class="problem-points">
+        <div class="problem-point">
+          <div class="problem-icon">❌</div>
+          <div class="problem-text">
+            <strong>Analyse manuelle impossible</strong>
+            <p>Des milliers de connexions par jour — aucun humain ne peut toutes les surveiller.</p>
+          </div>
+        </div>
+        <div class="problem-point">
+          <div class="problem-icon">❌</div>
+          <div class="problem-text">
+            <strong>Réaction après les dégâts</strong>
+            <p>Sans détection en temps réel, l'attaque est découverte trop tard.</p>
+          </div>
+        </div>
+        <div class="problem-point">
+          <div class="problem-icon">❌</div>
+          <div class="problem-text">
+            <strong>Équipe SOC hors de prix</strong>
+            <p>Une équipe de sécurité dédiée coûte +100 000€/an — inaccessible pour une PME.</p>
+          </div>
+        </div>
+        <div class="problem-point">
+          <div class="problem-icon">❌</div>
+          <div class="problem-text">
+            <strong>Pare-feu insuffisant</strong>
+            <p>Le pare-feu bloque le trafic connu malveillant mais ne détecte pas les attaques sophistiquées.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="reveal">
+      <div class="cost-card">
+        <div class="cost-num">4.5M$</div>
+        <div class="cost-label">Coût moyen d'une cyberattaque</div>
+        <div class="cost-sub">Les PME représentent 43% des cibles des cyberattaques, mais seulement 14% sont préparées à y faire face.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section id="fonctionnement">
+  <div class="how">
+    <div class="reveal">
+      <div class="section-tag">Fonctionnement</div>
+      <h2 class="section-title">Simple à intégrer,<br>puissant à l'exécution</h2>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">🌐</div>
+        <div class="step-title">Connexion réseau</div>
+        <div class="step-desc">Une connexion entre dans votre réseau. L'agent extrait les 41 features NSL-KDD.</div>
+        <div class="step-arrow"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">⚙️</div>
+        <div class="step-title">Preprocessing</div>
+        <div class="step-desc">Sélection des 15 meilleures features, encodage et normalisation automatiques.</div>
+        <div class="step-arrow"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">🤖</div>
+        <div class="step-title">XGBoost prédit</div>
+        <div class="step-desc">Le modèle entraîné sur NSL-KDD calcule la probabilité d'attaque en &lt;100ms.</div>
+        <div class="step-arrow"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-icon">🚨</div>
+        <div class="step-title">Score retourné</div>
+        <div class="step-desc">Score 0–100 + label (normal / suspect / attaque) + niveau de confiance.</div>
+      </div>
+    </div>
+
+    <!-- Terminal demo -->
+    <div class="terminal reveal">
+      <div class="terminal-bar">
+        <div class="terminal-dot" style="background:#ff5f57"></div>
+        <div class="terminal-dot" style="background:#febc2e"></div>
+        <div class="terminal-dot" style="background:#28c840"></div>
+        <span style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);margin-left:0.5rem">inferno-api — POST /v1/score</span>
+      </div>
+      <div class="terminal-body">
+        <span class="t-muted">$ </span><span class="t-white">curl -X POST https://api.inferno.io/v1/score \</span><br>
+        <span class="t-white">&nbsp;&nbsp;-H </span><span class="t-accent">"X-API-Key: ng_live_xxxx"</span><span class="t-white"> \</span><br>
+        <span class="t-white">&nbsp;&nbsp;-d </span><span class="t-accent">'{"features": [0,"tcp","http","SF",181,5450,...]}'</span><br>
+        <br>
+        <span class="t-muted"># Réponse en 47ms</span><br>
+        <span class="t-white">{</span><br>
+        <span class="t-white">&nbsp;&nbsp;</span><span class="t-accent">"score"</span><span class="t-white">: 0,</span><br>
+        <span class="t-white">&nbsp;&nbsp;</span><span class="t-accent">"label"</span><span class="t-white">: </span><span class="t-green">"normal"</span><span class="t-white">,</span><br>
+        <span class="t-white">&nbsp;&nbsp;</span><span class="t-accent">"confidence"</span><span class="t-white">: 1.0,</span><br>
+        <span class="t-white">&nbsp;&nbsp;</span><span class="t-accent">"model_version"</span><span class="t-white">: </span><span class="t-green">"1.0.0"</span><br>
+        <span class="t-white">}</span><br>
+        <br>
+        <span class="t-muted">$ </span><span class="t-white">curl -X POST https://api.inferno.io/v1/score \</span><br>
+        <span class="t-white">&nbsp;&nbsp;-d </span><span class="t-accent">'{"features": [0,"icmp","ecr_i","SF",1032,0,...]}'</span><br>
+        <br>
+        <span class="t-muted"># Attaque DoS détectée</span><br>
+        <span class="t-white">{</span><br>
+        <span class="t-white">&nbsp;&nbsp;</span><span class="t-accent">"score"</span><span class="t-white">: 100,</span><br>
+        <span class="t-white">&nbsp;&nbsp;</span><span class="t-accent">"label"</span><span class="t-white">: </span><span class="t-danger">"attaque"</span><span class="t-white">,</span><br>
+        <span class="t-white">&nbsp;&nbsp;</span><span class="t-accent">"confidence"</span><span class="t-white">: 1.0</span><br>
+        <span class="t-white">}</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features-section" id="features">
+  <div class="features-inner">
+    <div class="reveal">
+      <div class="section-tag">Fonctionnalités</div>
+      <h2 class="section-title">Tout ce dont vous<br>avez besoin</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card reveal">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Score en temps réel</div>
+        <div class="feature-desc">Chaque connexion analysée en moins de 100ms. Score de 0 à 100 avec niveau de confiance.</div>
+        <span class="feature-tag">< 100ms</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🤖</div>
+        <div class="feature-title">XGBoost NSL-KDD</div>
+        <div class="feature-desc">Modèle entraîné sur 125 000 connexions réelles. 99.79% d'accuracy sur le dataset de test.</div>
+        <span class="feature-tag">99.79% accuracy</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🔌</div>
+        <div class="feature-title">API REST simple</div>
+        <div class="feature-desc">Un seul endpoint POST. Intégration en 10 minutes avec n'importe quel pare-feu ou SIEM.</div>
+        <span class="feature-tag">REST API</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Scoring gradué</div>
+        <div class="feature-desc">Contrairement aux solutions binaires, InferNo donne une gradation du risque pour prioriser les menaces.</div>
+        <span class="feature-tag">0 → 100</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-title">5 types d'attaques</div>
+        <div class="feature-desc">Détection des attaques DoS, Probe, R2L, U2R et connexions normales avec label explicite.</div>
+        <span class="feature-tag">NSL-KDD</span>
+      </div>
+      <div class="feature-card reveal">
+        <div class="feature-icon">📡</div>
+        <div class="feature-title">Live Feed</div>
+        <div class="feature-desc">Dashboard temps réel pour visualiser le flux d'analyses et l'historique des connexions suspectes.</div>
+        <span class="feature-tag">Temps réel</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing -->
+<section id="tarifs">
+  <div class="pricing-inner">
+    <div class="reveal" style="text-align:center">
+      <div class="section-tag" style="justify-content:center">Tarification</div>
+      <h2 class="section-title">Simple et transparent</h2>
+      <p style="color:var(--muted);font-size:0.95rem;max-width:500px;margin:0 auto">Commencez gratuitement. Passez à l'échelle selon vos besoins. Annulez à tout moment.</p>
+    </div>
+    <div class="pricing-grid reveal">
+
+      <!-- Free -->
+      <div class="pricing-card">
+        <div class="pricing-header">
+          <div class="pricing-name">Free</div>
+          <div class="pricing-desc">Pour tester et intégrer</div>
+        </div>
+        <div class="pricing-price">
+          <div class="price-num"><span class="currency">€</span>0</div>
+          <div class="price-period">Pour toujours</div>
+        </div>
+        <ul class="pricing-features">
+          <li>500 requêtes / mois</li>
+          <li>Endpoint /v1/score</li>
+          <li>Documentation API</li>
+          <li class="muted">Batch scoring</li>
+          <li class="muted">SLA garanti</li>
+          <li class="muted">Support prioritaire</li>
+        </ul>
+        <div class="pricing-action">
+          <a href="#" class="pricing-btn">Commencer</a>
+        </div>
+      </div>
+
+      <!-- Starter -->
+      <div class="pricing-card">
+        <div class="pricing-header">
+          <div class="pricing-name">Starter</div>
+          <div class="pricing-desc">Pour les petites équipes</div>
+        </div>
+        <div class="pricing-price">
+          <div class="price-num"><span class="currency">€</span>29</div>
+          <div class="price-period">Par mois</div>
+        </div>
+        <ul class="pricing-features">
+          <li>50 000 requêtes / mois</li>
+          <li>Endpoint /v1/score</li>
+          <li>Batch scoring</li>
+          <li>Live Feed dashboard</li>
+          <li class="muted">SLA garanti</li>
+          <li class="muted">Support prioritaire</li>
+        </ul>
+        <div class="pricing-action">
+          <a href="#" class="pricing-btn">Choisir Starter</a>
+        </div>
+      </div>
+
+      <!-- Pro -->
+      <div class="pricing-card featured">
+        <div class="pricing-badge">⭐ Le plus populaire</div>
+        <div class="pricing-header">
+          <div class="pricing-name">Pro</div>
+          <div class="pricing-desc">Pour les entreprises en croissance</div>
+        </div>
+        <div class="pricing-price">
+          <div class="price-num"><span class="currency">€</span>99</div>
+          <div class="price-period">Par mois</div>
+        </div>
+        <ul class="pricing-features">
+          <li>500 000 requêtes / mois</li>
+          <li>Tous les endpoints</li>
+          <li>Batch scoring illimité</li>
+          <li>Live Feed dashboard</li>
+          <li>SLA 99.9%</li>
+          <li class="muted">Support prioritaire</li>
+        </ul>
+        <div class="pricing-action">
+          <a href="#" class="pricing-btn featured-btn">Choisir Pro</a>
+        </div>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="pricing-card">
+        <div class="pricing-header">
+          <div class="pricing-name">Enterprise</div>
+          <div class="pricing-desc">Pour les grands comptes</div>
+        </div>
+        <div class="pricing-price">
+          <div class="price-num" style="font-size:2.5rem">Sur devis</div>
+          <div class="price-period">Contrat annuel</div>
+        </div>
+        <ul class="pricing-features">
+          <li>Requêtes illimitées</li>
+          <li>Déploiement on-premise</li>
+          <li>Finetuning sur vos données</li>
+          <li>Intégration pare-feu incluse</li>
+          <li>SLA 99.99%</li>
+          <li>Support dédié 24/7</li>
+        </ul>
+        <div class="pricing-action">
+          <a href="#" class="pricing-btn">Nous contacter</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-inner reveal">
+    <h2 class="cta-title">Protégez votre réseau <span class="accent">maintenant</span></h2>
+    <p class="cta-sub">500 requêtes gratuites. Aucune carte bancaire requise. Opérationnel en 10 minutes.</p>
+    <div class="cta-actions">
+      <a href="http://localhost:8002" class="btn-primary">Voir la démo live</a>
+      <a href="#" class="btn-ghost">Voir la documentation</a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-logo">Infer<span>No</span></div>
+  <div class="footer-copy">© 2026 InferNo — NSL-KDD Intrusion Detection API</div>
+</footer>
+
+<script>
+// Custom cursor
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+document.addEventListener('mousemove', e => {
+  cursor.style.left = e.clientX + 'px';
+  cursor.style.top = e.clientY + 'px';
+  setTimeout(() => {
+    ring.style.left = e.clientX + 'px';
+    ring.style.top = e.clientY + 'px';
+  }, 80);
+});
+
+// Navbar scroll
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// Reveal on scroll
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
