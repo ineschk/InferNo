@@ -149,11 +149,15 @@ class HealthResponse(BaseModel):
 # ── Routes ─────────────────────────────────────────────────────────────────
 @app.get("/", response_class=FileResponse)
 async def ui():
-    return FileResponse("static/index.html")
+    return FileResponse("static/landing.html")
 
 @app.get("/landing", response_class=FileResponse)
 async def landing():
     return FileResponse("static/landing.html")
+
+@app.get("/demo", response_class=FileResponse)
+async def demo():
+    return FileResponse("static/index.html")
 
 @app.get("/v1/health", response_model=HealthResponse)
 async def health():
